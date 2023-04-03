@@ -8,20 +8,28 @@ from airflow.utils.dates import days_ago
 from airflow_notify_sns import airflow_notify_sns
 
 from airflow.exceptions import AirflowException
-from airflow.providers.amazon.aws.operators.ecs import ECSOperator
-
-try:
-    account_config = Variable.get("aws_account_config", deserialize_json=True)
-except Exception as ex:
-    raise AirflowException("Variable aws_account_config must be set.")
+from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
 
 try:
     dag_config = Variable.get("sap_coletor_rfc", deserialize_json=True)
 except Exception as ex:
-    raise AirflowException("Variable sap_coletor_rfc must be set.")
+    raise AirflowException("Variable sap_coletor_rfc must be set.")  
+    ## Exemple of a DAG config to runs a SAP RFC function
+    ## {
+    ##     "retry_count": 3,
+    ##     "retry_delay_minutes": 5,
+    ##     "schedule": "0 0 * * *",
+    ##     "dag_max_active_runs": 1,
+    ##     "sap_host": "127.0.01",
+    ##     "sap_user": "user",
+    ##     "sap_password": "123qwe",
+    ##     "sap_client": 200,
+    ##     "namespace": "airflow",
+    ##     "image": "502940995437.dkr.ecr.us-east-1.amazonaws.com/sodimac-datalake/coletor-sap-rfc:latest"
+    ## }
 
 
-PROJECT_PREFIX = account_config.get("project_prefix")
+DATALAKE_PREFIX_PATH = "s3://sodimac-production-silver/origin=kubernetes/database=silver_sap"
 
 # [START default_args]
 # These args will get passed on to each operator
@@ -54,7 +62,7 @@ def _generate_k8s_operator(dag_instance, RFC_NAME):
             IV_DATA: {{ ds }}
 
         save_parquet:
-        path: "s3://{DATALAKE_BUCKET}/prod/full/{RFC_NAME_LOWER}"
+        path: "{DATALAKE_PREFIX_PATH}/{RFC_NAME_LOWER}"
         EOF
     """.format({
         "SAP_HOST": dag_config.get("sap_host"),
@@ -63,32 +71,19 @@ def _generate_k8s_operator(dag_instance, RFC_NAME):
         "SAP_CLIENT": dag_config.get("sap_client"),
         "RFC_NAME": RFC_NAME,
         "RFC_NAME_LOWER": RFC_NAME.lower().replace('delta', ''),
-        "DATALAKE_BUCKET": dag_config.get("datalake_bucket"),
+        "DATALAKE_PREFIX_PATH": DATALAKE_PREFIX_PATH,
     })
 
-    return ECSOperator(
+    name = f"coletor_rfc_{RFC_NAME}"
+    return KubernetesPodOperator(
         dag=dag_instance,
-        task_id=f"coletor_rfc_{RFC_NAME}",
-        aws_conn_id="aws_default",
-        cluster="sodimac-datalake-ecs-airflow",
-        task_definition="coletor-sap-rfc:3",
-        launch_type="FARGATE",
-        overrides={
-            "containerOverrides": [
-                {
-                    "name": f"coletor_rfc_{RFC_NAME}-container",
-                    "command": [command],
-                },
-            ],
-        },
-        network_configuration={
-            "awsvpcConfiguration": {
-                "securityGroups": [os.environ.get("SECURITY_GROUP_ID")],
-                "subnets": [os.environ.get("SUBNET_ID")],
-            },
-        },
-        awslogs_group="/ecs/coletor-sap-rfc",
-        awslogs_stream_prefix="coletor_rfc_{RFC_NAME}-container",
+        task_id=name,
+        name=name,
+        namespace=dag_config.get("namespace", "default"),
+        image=dag_config.get("image"),
+        image_pull_policy="Always",
+        is_delete_operator_pod=True,
+        cmds=[command],
     )
 
 # [START instantiate_dag]
