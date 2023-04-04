@@ -5,7 +5,8 @@ from airflow.operators.dummy import DummyOperator
 from airflow.utils.dates import days_ago
 
 # Error notifications to SNS
-from airflow_notify_sns import airflow_notify_sns
+# from airflow_notify_sns import airflow_notify_sns
+airflow_notify_sns = lambda x: None
 
 from airflow.exceptions import AirflowException
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
