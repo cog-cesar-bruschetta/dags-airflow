@@ -66,10 +66,10 @@ def _generate_k8s_operator(dag_instance, RFC_NAME):
         path: "{DATALAKE_PREFIX_PATH}/{RFC_NAME_LOWER}"
         EOF
     """.format({
-        "SAP_HOST": dag_config.get("sap_host"),
-        "SAP_USER": dag_config.get("sap_user"),
-        "SAP_PASSWORD": dag_config.get("sap_password"),
-        "SAP_CLIENT": dag_config.get("sap_client"),
+        "SAP_HOST": dag_config["sap_host"],
+        "SAP_USER": dag_config["sap_user"],
+        "SAP_PASSWORD": dag_config["sap_password"],
+        "SAP_CLIENT": dag_config["sap_client"],
         "RFC_NAME": RFC_NAME,
         "RFC_NAME_LOWER": RFC_NAME.lower().replace('delta', ''),
         "DATALAKE_PREFIX_PATH": DATALAKE_PREFIX_PATH,
