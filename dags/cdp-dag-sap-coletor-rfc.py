@@ -65,7 +65,7 @@ def _generate_k8s_operator(dag_instance, RFC_NAME):
         save_parquet:
         path: "{DATALAKE_PREFIX_PATH}/{RFC_NAME_LOWER}"
         EOF
-    """.format({
+    """.format(**{
         "SAP_HOST": dag_config["sap_host"],
         "SAP_USER": dag_config["sap_user"],
         "SAP_PASSWORD": dag_config["sap_password"],
