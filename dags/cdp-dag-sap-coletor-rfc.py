@@ -1,12 +1,15 @@
+import boto3
+import json
+
 from datetime import timedelta
 from airflow import DAG
 from airflow.models import Variable
 from airflow.operators.dummy import DummyOperator
 from airflow.utils.dates import days_ago
+from botocore.exceptions import ClientError
 
 # Error notifications to SNS
-# from airflow_notify_sns import airflow_notify_sns
-airflow_notify_sns = lambda x: None
+from airflow_notify_sns import airflow_notify_sns
 
 from airflow.exceptions import AirflowException
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
@@ -15,19 +18,30 @@ try:
     dag_config = Variable.get("sap_coletor_rfc", deserialize_json=True)
 except Exception as ex:
     raise AirflowException("Variable sap_coletor_rfc must be set.")  
-    ## Exemple of a DAG config to runs a SAP RFC function
-    ## {
-    ##     "retry_count": 3,
-    ##     "retry_delay_minutes": 5,
-    ##     "schedule": "0 0 * * *",
-    ##     "dag_max_active_runs": 1,
-    ##     "sap_host": "127.0.01",
-    ##     "sap_user": "user",
-    ##     "sap_password": "123qwe",
-    ##     "sap_client": 200,
-    ##     "namespace": "airflow",
-    ##     "image": "502940995437.dkr.ecr.us-east-1.amazonaws.com/sodimac-datalake/coletor-sap-rfc:latest"
-    ## }
+
+
+def get_secret(secret_name, region_name = "us-east-1"):
+    # Create a Secrets Manager client
+    session = boto3.session.Session()
+    client = session.client(
+        service_name='secretsmanager',
+        region_name=region_name
+    )
+
+    try:
+        get_secret_value_response = client.get_secret_value(
+            SecretId=secret_name
+        )
+    except ClientError as e:
+        # For a list of exceptions thrown, see
+        # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+        raise e
+
+    # Decrypts secret using the associated KMS key.
+    secret = get_secret_value_response['SecretString']
+
+    # Your code goes here.
+    return secret
 
 
 DATALAKE_PREFIX_PATH = "s3://sodimac-production-silver/origin=kubernetes/database=silver_sap"
@@ -50,6 +64,11 @@ default_args = {
 # [END default_args]s
 
 def _generate_k8s_operator(dag_instance, RFC_NAME): 
+
+    secrets_config = json.loads(get_secret(
+        secret_name=dag_config["secret_name"]
+    ))
+
     command = """ <<EOF 
         sap_server:
         host: {SAP_HOST}
@@ -66,10 +85,10 @@ def _generate_k8s_operator(dag_instance, RFC_NAME):
         path: "{DATALAKE_PREFIX_PATH}/{RFC_NAME_LOWER}"
         EOF
     """.format(**{
-        "SAP_HOST": dag_config["sap_host"],
-        "SAP_USER": dag_config["sap_user"],
-        "SAP_PASSWORD": dag_config["sap_password"],
-        "SAP_CLIENT": dag_config["sap_client"],
+        "SAP_HOST": secrets_config["sap_host"],
+        "SAP_USER": secrets_config["sap_user"],
+        "SAP_PASSWORD": secrets_config["sap_password"],
+        "SAP_CLIENT": secrets_config["sap_client"],
         "RFC_NAME": RFC_NAME,
         "RFC_NAME_LOWER": RFC_NAME.lower().replace('delta', ''),
         "DATALAKE_PREFIX_PATH": DATALAKE_PREFIX_PATH,
