@@ -9,7 +9,8 @@ from airflow.utils.dates import days_ago
 from botocore.exceptions import ClientError
 
 # Error notifications to SNS
-from airflow_notify_sns import airflow_notify_sns
+# from airflow_notify_sns import airflow_notify_sns
+airflow_notify_sns = lambda x : True
 
 from airflow.exceptions import AirflowException
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
