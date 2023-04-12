@@ -94,7 +94,7 @@ def _generate_k8s_operator(dag_instance, RFC_NAME):
                 name="SAP_PASSWORD", value=secrets_config["sap_password"]
             ),
             k8s.V1EnvVar(
-                name="SAP_CLIENT", value=secrets_config["sap_client"]
+                name="SAP_CLIENT", value=str(secrets_config["sap_client"])
             ),
             k8s.V1EnvVar(
                 name="RFC_NAME", value=RFC_NAME
