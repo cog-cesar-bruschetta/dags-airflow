@@ -72,6 +72,9 @@ def _generate_k8s_operator(dag_instance, RFC_NAME):
     ))
 
     name = f"coletor_rfc_{RFC_NAME}"
+    SAP_PARAMS = json.dumps({
+        "IV_DATA": "{{ ds }}"
+    })
     return KubernetesPodOperator(
         dag=dag_instance,
         task_id=name,
@@ -103,9 +106,7 @@ def _generate_k8s_operator(dag_instance, RFC_NAME):
                 name="DATALAKE_PREFIX_PATH", value=DATALAKE_PREFIX_PATH
             ),
             k8s.V1EnvVar(
-                name="SAP_PARAMS", value=json.dumps({
-                    "IV_DATA": "{{ ds }}"
-                })
+                name="SAP_PARAMS", value=SAP_PARAMS
             ),
         ],
         cmds=["/bin/bash", "-c", "make-config-file && run-coletor <(cat /tmp/config.yaml)"],
