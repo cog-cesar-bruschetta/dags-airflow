@@ -85,31 +85,31 @@ def _generate_k8s_operator(dag_instance, RFC_NAME):
         is_delete_operator_pod=True,
         env_vars=[
             k8s.V1EnvVar(
-                name="SAP_HOST", value=str(secrets_config["sap_host"])
+                name="SAP_HOST", value=secrets_config["sap_host"]
             ),
             k8s.V1EnvVar(
-                name="SAP_USER", value=str(secrets_config["sap_user"])
+                name="SAP_USER", value=secrets_config["sap_user"]
             ),
             k8s.V1EnvVar(
-                name="SAP_PASSWORD", value=str(secrets_config["sap_password"])
+                name="SAP_PASSWORD", value=secrets_config["sap_password"]
             ),
             k8s.V1EnvVar(
                 name="SAP_CLIENT", value=str(secrets_config["sap_client"])
             ),
             k8s.V1EnvVar(
-                name="RFC_NAME", value=str(RFC_NAME)
+                name="RFC_NAME", value=RFC_NAME
             ),
             k8s.V1EnvVar(
-                name="RFC_NAME_LOWER", value=str(RFC_NAME.lower().replace('_delta', ''))
+                name="RFC_NAME_LOWER", value=RFC_NAME.lower().replace('_delta', '')
             ),
             k8s.V1EnvVar(
-                name="DATALAKE_PREFIX_PATH", value=str(DATALAKE_PREFIX_PATH)
+                name="DATALAKE_PREFIX_PATH", value=DATALAKE_PREFIX_PATH
             ),
             k8s.V1EnvVar(
-                name="SAP_PARAMS", value=str(SAP_PARAMS)
+                name="SAP_PARAMS", value=SAP_PARAMS
             ),
         ],
-        cmds=["/bin/bash", "-c", "make-config-file && cat /tmp/config.yaml && run-coletor <(cat /tmp/config.yaml)"],
+        cmds=["/bin/bash", "-c", "make-config-file && cat /tmp/config.yaml | run-coletor"],
     )
 
 # [START instantiate_dag]
