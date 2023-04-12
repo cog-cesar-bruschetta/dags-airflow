@@ -70,31 +70,6 @@ def _generate_k8s_operator(dag_instance, RFC_NAME):
         secret_name=dag_config["secret_name"]
     ))
 
-    command = """ <<EOF 
-        sap_server:
-        host: {SAP_HOST}
-        username: {SAP_USER}
-        password: {SAP_PASSWORD}
-        client: {SAP_CLIENT}
-
-        rfc_execute:
-        name: {RFC_NAME}
-        params:
-            IV_DATA: {{ ds }}
-
-        save_parquet:
-        path: "{DATALAKE_PREFIX_PATH}/{RFC_NAME_LOWER}"
-        EOF
-    """.format(**{
-        "SAP_HOST": secrets_config["sap_host"],
-        "SAP_USER": secrets_config["sap_user"],
-        "SAP_PASSWORD": secrets_config["sap_password"],
-        "SAP_CLIENT": secrets_config["sap_client"],
-        "RFC_NAME": RFC_NAME,
-        "RFC_NAME_LOWER": RFC_NAME.lower().replace('delta', ''),
-        "DATALAKE_PREFIX_PATH": DATALAKE_PREFIX_PATH,
-    })
-
     name = f"coletor_rfc_{RFC_NAME}"
     return KubernetesPodOperator(
         dag=dag_instance,
@@ -104,7 +79,19 @@ def _generate_k8s_operator(dag_instance, RFC_NAME):
         image=dag_config.get("image"),
         image_pull_policy="Always",
         is_delete_operator_pod=True,
-        cmds=[command],
+        env_vars={
+            "SAP_HOST": secrets_config["sap_host"],
+            "SAP_USER": secrets_config["sap_user"],
+            "SAP_PASSWORD": secrets_config["sap_password"],
+            "SAP_CLIENT": secrets_config["sap_client"],
+            "RFC_NAME": RFC_NAME,
+            "RFC_NAME_LOWER": RFC_NAME.lower().replace('delta', ''),
+            "DATALAKE_PREFIX_PATH": DATALAKE_PREFIX_PATH,
+            "SAP_PARAMS": json.dumps({
+                "IV_DATA": "{{ ds }}"
+            })
+        }
+        cmds=["/bin/bash", "-c", "make-config-file && run-coletor <(cat /tmp/config.yaml)"],
     )
 
 # [START instantiate_dag]
