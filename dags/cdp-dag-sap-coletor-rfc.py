@@ -14,6 +14,7 @@ airflow_notify_sns = lambda x : True
 
 from airflow.exceptions import AirflowException
 from airflow.contrib.operators.kubernetes_pod_operator import KubernetesPodOperator
+from kubernetes.client import models as k8s
 
 try:
     dag_config = Variable.get("sap_coletor_rfc", deserialize_json=True)
@@ -79,18 +80,34 @@ def _generate_k8s_operator(dag_instance, RFC_NAME):
         image=dag_config.get("image"),
         image_pull_policy="Always",
         is_delete_operator_pod=True,
-        env_vars={
-            "SAP_HOST": secrets_config["sap_host"],
-            "SAP_USER": secrets_config["sap_user"],
-            "SAP_PASSWORD": secrets_config["sap_password"],
-            "SAP_CLIENT": secrets_config["sap_client"],
-            "RFC_NAME": RFC_NAME,
-            "RFC_NAME_LOWER": RFC_NAME.lower().replace('delta', ''),
-            "DATALAKE_PREFIX_PATH": DATALAKE_PREFIX_PATH,
-            "SAP_PARAMS": json.dumps({
-                "IV_DATA": "{{ ds }}"
-            })
-        },
+        env_vars=[
+            k8s.V1EnvVar(
+                name="SAP_HOST", value=secrets_config["sap_host"]
+            ),
+            k8s.V1EnvVar(
+                name="SAP_USER", value=secrets_config["sap_user"]
+            ),
+            k8s.V1EnvVar(
+                name="SAP_PASSWORD", value=secrets_config["sap_password"]
+            ),
+            k8s.V1EnvVar(
+                name="SAP_CLIENT", value=secrets_config["sap_client"]
+            ),
+            k8s.V1EnvVar(
+                name="RFC_NAME", value=RFC_NAME
+            ),
+            k8s.V1EnvVar(
+                name="RFC_NAME_LOWER", value=RFC_NAME.lower().replace('delta', '')
+            ),
+            k8s.V1EnvVar(
+                name="DATALAKE_PREFIX_PATH", value=DATALAKE_PREFIX_PATH
+            ),
+            k8s.V1EnvVar(
+                name="SAP_PARAMS", value=json.dumps({
+                    "IV_DATA": "{{ ds }}"
+                })
+            ),
+        ],
         cmds=["/bin/bash", "-c", "make-config-file && run-coletor <(cat /tmp/config.yaml)"],
     )
 
